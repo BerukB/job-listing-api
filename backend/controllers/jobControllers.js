@@ -1,16 +1,16 @@
 const Joi = require("joi");
 const Job = require("../model/jobsModel");
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 const asyncHandler = require("express-async-handler");
 
 // Get a single job
 
 const getJob = asyncHandler(async (req, res) => {
-    const id = req.params.id;
+  const id = req.params.id;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ message: "Invalid Job ID" });
-      }
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid Job ID" });
+  }
 
   const job = await Job.findById(id);
   if (!job)
@@ -22,54 +22,35 @@ const getJob = asyncHandler(async (req, res) => {
 // Get all jobs
 
 const getJobs = asyncHandler(async (req, res) => {
-  // let{page, limit, sort, ...filter} = req.body;
-    // filter variables
-    const jobTitleFilter = req.query.jobTitleFilter;
-    const companyNameFilter = req.query.companyNameFilter;
-    const jobLocationFilter = req.query.jobLocationFilter; 
-    // sort variables
-    const jobTitleSort = req.query.jobTitleSort;
-    const companyNameSort = req.query.companyNameSort;
-    const jobLocationSort = req.query.jobLocationSort;
-    // Pagination 
-    const pageNumber = parseInt(req.query.pageNumber, 10);
-    const pageLimit = parseInt(req.query.pageLimit, 10);
 
-    let filter = {};
-    if(jobTitleFilter) filter.position = jobTitleFilter;
-    if(companyNameFilter) filter.company = companyNameFilter;
-    if(jobLocationFilter) filter.location = jobLocationFilter;
+  const { pageLimit, pageNumber, sort, ...filter } = req.query;
+  // Pagination
+  const currentPageNumber = parseInt(pageNumber, 10);
+  const itemsPerPage = parseInt(pageLimit, 10);
 
-    let sort = {};
-    if(jobTitleSort) sort.position = jobTitleSort === 'desc' ? -1 : 1;
-    if(companyNameSort) sort.company = companyNameSort === 'desc' ? -1 : 1;
-    if(jobLocationSort) sort.location = jobLocationSort === 'desc' ? -1 : 1;
-    
-
-    const jobs = await Job
-    .find(filter)
+  const jobs = await Job.find(filter)
+    .collation({ locale: "en", strength: 2 })
     .sort(sort)
-    .skip((pageNumber -1)*pageLimit)
-    .limit(pageLimit);
+    .skip((currentPageNumber - 1) * itemsPerPage)
+    .limit(itemsPerPage);
 
-    // Get the total number of jobs that match the filter
-    const count = await Job.countDocuments(filter);
+  // Get the total number of jobs that match the filter
+  const count = await Job.countDocuments(filter);
 
-    // Calculate the total number of pages
-    const totalPages = Math.ceil(count / pageLimit);
-    
-    res.status(200).json({
-      jobs,
-      totalPages,
-      currentPage: pageNumber
-    });
-    
+  // Calculate the total number of pages
+  const totalPages = Math.ceil(count / pageLimit);
+
+  res.status(200).json({
+    count,
+    totalPages,
+    currentPage: currentPageNumber,
+    jobs,
+  });
 });
 
 // Post a single job
 
 const postJob = asyncHandler(async (req, res) => {
-
   const { error } = validateJob(req.body);
 
   if (error) return res.status(400).send(error.details[0].message);
@@ -95,24 +76,23 @@ const postJob = asyncHandler(async (req, res) => {
 // Update a single job
 
 const patchJob = asyncHandler(async (req, res) => {
-
   const id = req.params.id;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ message: "Invalid Job ID" });
-      }
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid Job ID" });
+  }
 
-      const { error } = validateJobPatch(req.body);
+  const { error } = validateJobPatch(req.body);
 
-      if (error) return res.status(400).send(error.details[0].message);
+  if (error) return res.status(400).send(error.details[0].message);
 
-  const job =  await Job.findByIdAndUpdate(id, req.body,{
-    new:true,
-    runValidators: true
+  const job = await Job.findByIdAndUpdate(id, req.body, {
+    new: true,
+    runValidators: true,
   });
 
   if (!job)
-    return res.status(404).send("the job with the given id was not found."); 
+    return res.status(404).send("the job with the given id was not found.");
 
   res.status(200).json(job);
 });
@@ -124,7 +104,7 @@ const deleteJob = asyncHandler(async (req, res) => {
   if (!job)
     return res.status(404).send("the job with the given id was not found.");
 
-await Job.findByIdAndRemove(req.params.id);
+  await Job.findByIdAndRemove(req.params.id);
 
   res.status(200).json({ message: `Delete job ${req.params.id}` });
 });
@@ -176,4 +156,3 @@ module.exports = {
   patchJob,
   deleteJob,
 };
- 

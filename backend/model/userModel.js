@@ -6,6 +6,7 @@ const userSchema = mongoose.Schema(
     email: String,
     password: String,
     userRole: String,
+    status: { type: String, default: "active" },
   },
   {
     timestamps: true,

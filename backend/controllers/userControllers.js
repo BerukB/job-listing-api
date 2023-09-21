@@ -22,14 +22,13 @@ const getMe = asyncHandler(async (req, res) => {
 // Get a single User
 
 const getUser = asyncHandler(async (req, res) => {
-  // console.log("id: ", req.params.id);
   const id = req.params.id;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ message: "Invalid User ID" });
   }
 
-  const user = await User.findById(id);
+  const user = await User.findById(id).select("-password");
   if (!user)
     return res.status(404).send("The user with the given id was not found.");
 
@@ -41,7 +40,7 @@ const getUser = asyncHandler(async (req, res) => {
 // @access Public
 
 const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, password, userRole } = req.body;
+  const { name, email, password, userRole, status } = req.body;
 
   const { error } = validateUser(req.body);
   if (error) return res.status(400).send(error.details[0].message);
@@ -71,6 +70,7 @@ const registerUser = asyncHandler(async (req, res) => {
       name: user.name,
       email: user.email,
       userRole: user.userRole,
+      status: user.status,
       token: generateToken(user._id),
     });
   } else {
@@ -84,10 +84,14 @@ const registerUser = asyncHandler(async (req, res) => {
 // @access Public
 
 const loginUser = asyncHandler(async (req, res) => {
-  const { name, email, password } = req.body;
+  const { email, password } = req.body;
 
   const user = await User.findOne({ email });
   if (user && (await bcrypt.compare(password, user.password))) {
+    if (user.status === "inactive") {
+      res.status(401);
+      throw new Error("You are not active");
+    }
     res.json({
       _id: user.id,
       name: user.name,
@@ -128,21 +132,25 @@ const patchUser = asyncHandler(async (req, res) => {
   if (!user)
     return res.status(404).send("The user with the given id was not found.");
 
-  res.status(200).json(user);
+  const { password, ...userWithoutPasword } = user.toObject();
+  res.status(200).json(userWithoutPasword);
 });
 
 // Get all Users
 
 const getUsers = asyncHandler(async (req, res) => {
-  const filter = { ...req.query };
-
+  // const filter = { ...req.query };
+  const { pageLimit, pageNumber, sort, ...filter } = req.query;
   // Pagination
-  const pageNumber = parseInt(req.query.pageNumber, 10);
-  const pageLimit = parseInt(req.query.pageLimit, 10);
+  const currentPageNumber = parseInt(pageNumber, 10);
+  const itemsPerPage = parseInt(pageLimit, 10);
 
   const users = await User.find(filter)
-    .skip((pageNumber - 1) * pageLimit)
-    .limit(pageLimit);
+    .collation({ locale: "en", strength: 2 })
+    .sort(sort)
+    .select("-password")
+    .skip((currentPageNumber - 1) * itemsPerPage)
+    .limit(itemsPerPage);
 
   // Get the total number of Users
   const count = await User.countDocuments();
@@ -151,9 +159,10 @@ const getUsers = asyncHandler(async (req, res) => {
   const totalPages = Math.ceil(count / pageLimit);
 
   res.status(200).json({
-    users,
+    count,
     totalPages,
-    currentPage: pageNumber,
+    currentPage: currentPageNumber,
+    users,
   });
 });
 
@@ -176,7 +185,7 @@ const validateUser = (user) => {
     name: Joi.string().min(3).required(),
     email: Joi.string().email().required(),
     password: Joi.string().min(6).required(),
-    userRole: Joi.string().required(),
+    userRole: Joi.string().valid("candidate", "admin", "superAdmin").required(),
   });
 
   return schema.validate(user);
@@ -187,7 +196,11 @@ const validateUserPatch = (user) => {
     name: Joi.string().min(3).optional(),
     email: Joi.string().email().optional(),
     password: Joi.string().min(6).optional(),
-    userRole: Joi.string().optional(),
+    userRole: Joi.string().valid("candidate", "admin", "superAdmin").optional(),
+    status: Joi.string()
+      .valid("active", "inactive")
+      .default("active")
+      .optional(),
   });
 
   return schema.validate(user);
