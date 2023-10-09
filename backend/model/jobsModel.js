@@ -4,7 +4,7 @@ const jobSchema = mongoose.Schema({
     user: mongoose.Schema.Types.ObjectId,
     company: String,
     logo: String,
-    new: Boolean,
+    isnew: Boolean,
     featured: Boolean,
     position: String,
     role: String,

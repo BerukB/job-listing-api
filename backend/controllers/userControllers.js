@@ -10,12 +10,13 @@ const bcrypt = require("bcryptjs");
 // @access Private
 
 const getMe = asyncHandler(async (req, res) => {
-  const { _id, name, email } = await User.findById(req.user.id);
+  const { _id, name, email,userRole } = await User.findById(req.user.id);
 
   res.status(200).json({
     id: _id,
     name,
     email,
+    userRole
   });
 });
 
@@ -96,6 +97,7 @@ const loginUser = asyncHandler(async (req, res) => {
       _id: user.id,
       name: user.name,
       email: user.email,
+      userRole: user.userRole,
       token: generateToken(user._id),
     });
   } else {

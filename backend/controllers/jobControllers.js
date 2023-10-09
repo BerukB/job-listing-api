@@ -59,7 +59,7 @@ const postJob = asyncHandler(async (req, res) => {
     user: req.user.id,
     company: req.body.company,
     logo: req.body.logo,
-    isnew: req.body.isTrue,
+    isnew: req.body.isnew,
     featured: req.body.featured,
     position: req.body.position,
     role: req.body.role,

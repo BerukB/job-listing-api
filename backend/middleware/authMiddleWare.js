@@ -58,7 +58,7 @@ const protectCUD = asyncHandler(async (req, res, next) => {
 
       const { userRole, status } = req.user;
 
-      if (userRole === "Candidate") {
+      if (userRole === "candidate") {
         res.status(401)
       throw new Error("Not authorized");
       }
@@ -101,7 +101,7 @@ const protectUserAccounts = asyncHandler(async (req, res, next) => {
 
       const { userRole } = req.user;
 
-      if (userRole !== "Super Admin") {
+      if (userRole !== "superAdmin") {
         res.status(401);
       throw new Error("Not authorized");
       }
